@@ -2,8 +2,34 @@
 #include <fstream>
 #include <vector>
 
-#define HEADER_SIZE 0x400
+//#define HEADER_SIZE 0x400
+#define HEADER_SIZE 0x4e1
 #define COMPRESSED_SIZE 0x2A000
+
+// I'm just guessing here..
+#pragma pack(push,1)
+struct UEHeaderProbably
+{
+    char magic[4];
+    int fileVersionQuestionMark;
+    uint8_t ueMajorVersion;
+    uint8_t ueMinorVersion1;
+    uint8_t ueMinorVersion2;
+    uint8_t uePatchVersion;
+    uint16_t engineMajor;
+    uint16_t engineMinor;
+    uint16_t enginePatch;
+    uint32_t engineBuild;
+    //char whatever;
+    uint32_t stringLength;
+    //char stringHeaderQuestionMark[6];
+    //char cantBeBotheredToGuess[15];
+    char gameNameMaybe[19];
+    uint32_t customVersion;
+    uint32_t customDataFormatCount;
+
+};
+#pragma pack(pop)
 
 int main(int argc, char *argv[]) try
 {
@@ -29,12 +55,20 @@ int main(int argc, char *argv[]) try
     const std::streamsize encryptedSize = size - (HEADER_SIZE + COMPRESSED_SIZE);
     std::cout << "0x" << std::hex << encryptedSize << std::dec << " bytes encrypted" << std::endl;
 
-    std::vector<char> buf(0x400);
+    std::vector<char> buf(HEADER_SIZE);
     in.read(buf.data(), buf.size());
     if (in.gcount() != HEADER_SIZE) {
         std::cerr << "Failed to read header from " << argv[1] << std::endl;
+        std::cerr << in.gcount() << std::endl;
         return 1;
     }
+    UEHeaderProbably *header = reinterpret_cast<UEHeaderProbably*>(buf.data());
+    std::cout << "File magic: " << header->magic << std::endl; // GVAS == SAVG backwards?
+    std::cout << "UE version: " << int(header->ueMajorVersion)
+        << '.' << int(header->ueMinorVersion1) << int(header->ueMinorVersion2)
+        << '.' << int(header->uePatchVersion) << std::endl;
+    std::cout << header->stringLength << std::endl;
+    std::cout << "Game name?: " << header->gameNameMaybe << std::endl;
 
     {
         std::ofstream out("header.bin", std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
